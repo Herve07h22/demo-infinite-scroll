@@ -14,12 +14,3 @@ export class EventBus<T> {
     }
   }
 }
-
-export function useBusEvt<T>(bus: EventBus<T>, callback?: (t: T) => void) {
-  useEffect(() => {
-    if (callback) {
-      bus.subscribe(callback);
-      return () => bus.unsubscribe(callback);
-    }
-  }, []);
-}

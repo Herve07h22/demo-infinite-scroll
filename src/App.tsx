@@ -1,17 +1,16 @@
-import VisibilitySensor from "react-visibility-sensor";
 import { Post } from "./api/Api";
 import { ApiTest } from "./api/ApiTest";
 import { InfiniteScroll } from "./infinite-scroll/controller/InfiniteScroll";
 import { ObserveVisibility } from "./infinite-scroll/hooks/ObserveVisibility";
 import { PostCard } from "./components/posts/PostCard";
 import { PostForm } from "./components/posts/PostForm";
-import { observer, useObserver } from "./observable/observable";
+import { observable, useObserver } from "./observable/observable";
 import { FetchingStatus } from "./components/spinners/LoadingStatus";
 
-const infinitePostsScroll = observer(new InfiniteScroll<Post>(new ApiTest()));
+const infinitePostsScroll = observable(new InfiniteScroll<Post>(new ApiTest()), "infinitePostsScroll");
 
 function App() {
-  const controller = useObserver(infinitePostsScroll);
+  const {currentElement, elements, noMoreData, loading} = useObserver(infinitePostsScroll);
   return (
     <div className="p-6 w-full h-screen ">
       <div className="p-6 w-full">
@@ -28,30 +27,30 @@ function App() {
       </div>
       <div className="p-6 w-full flex  h-1/2 flex-row">
         <div className="flex-initial h-full w-2/3 overflow-y-auto">
-          {controller.elements.map((post) => (
+          {elements.map((post) => (
             <ObserveVisibility
               key={post.id}
               onVisibilityChange={(visibility) =>
-                controller.onVisibilityChange(post.id, visibility)
+                infinitePostsScroll.onVisibilityChange(post.id, visibility)
               }
             >
               <PostCard
                 post={post}
-                onClick={() => controller.onClickElementInTheList(post.id)}
+                onClick={() => infinitePostsScroll.onClickElementInTheList(post.id)}
               />
             </ObserveVisibility>
           ))}
-          {controller.noMoreData ? (
+          {noMoreData ? (
             <p className="w-full text-center"> -- End of list -- </p>
           ) : null}
         </div>
         <div className="flex-initial h-full w-1/3 h-1/2">
-          {controller.currentElement ? (
+          {currentElement ? (
             <PostForm
-              post={controller.currentElement}
-              onChange={(p) => controller.onChangeCurrentElement(p)}
-              displaySaveButton={controller.unSavedChangesToCurrentElement}
-              onSave={() => controller.onClickSaveButton()}
+              post={currentElement}
+              onChange={(p) => infinitePostsScroll.onChangeCurrentElement(p)}
+              displaySaveButton={infinitePostsScroll.unSavedChangesToCurrentElement}
+              onSave={() => infinitePostsScroll.onClickSaveButton()}
             />
           ) : (
             <p className="text-center w-full text-base tracking-tight text-gray-500">
@@ -61,7 +60,7 @@ function App() {
         </div>
       </div>
       <hr />
-      <FetchingStatus isFetching={controller.loading}/>
+      <FetchingStatus isFetching={loading}/>
      
     </div>
   );

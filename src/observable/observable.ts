@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { EventBus } from "./EventBus";
 
 const watcher = (bus: EventBus<void>) => ({
@@ -10,38 +10,49 @@ const watcher = (bus: EventBus<void>) => ({
   },
 });
 
-function isObservable(
-  obj: object | (object & { __bus: EventBus<void> })
-): obj is object & { __bus: EventBus<void> } {
-  return obj.hasOwnProperty("__bus");
-}
+export type Observable<T extends object> = T & { __bus: EventBus<void> };
 
-export function observer<T extends object>(obj: T): T {
+export function observable<T extends object>(
+  obj: T,
+  nameForDebugging?: string
+): Observable<T> {
   const bus = new EventBus<void>();
   Object.defineProperty(obj, "__bus", {
     value: bus,
     writable: false,
   });
-  return new Proxy<T>(obj, watcher(bus));
+
+  const proxifiedObject = new Proxy<T>(obj, watcher(bus)) as Observable<T>;
+
+  if (nameForDebugging) {
+    Object.defineProperty(window, nameForDebugging, {
+      value: proxifiedObject,
+      writable: false,
+    });
+  }
+
+  return proxifiedObject;
 }
 
 // React glue
-export function useObserver<T extends object>(
-  obj: T | (T & { __bus: EventBus<void> })
-) {
+export function useObserver<T extends object>(obj: Observable<T>) {
   const [state, setState] = useState("");
+  const callback = () => setState(JSON.stringify(obj));
+  useEffect(() => subscribe(obj)(callback), []);
+  return obj;
+}
 
-  useEffect(() => {
-    if (isObservable(obj)) {
-      const bus = obj.__bus;
-      const callback = () => setState(JSON.stringify(obj));
-      bus.subscribe(callback);
-      return () => bus.unsubscribe(callback);
-    }
-  }, []);
+function subscribe<T extends object>(obj: Observable<T>) {
+  return (onStoreChange: () => void) => {
+    const bus = obj.__bus;
+    bus.subscribe(onStoreChange);
+    return () => bus.unsubscribe(onStoreChange);
+  };
+}
 
-  if (isObservable(obj)) return obj;
-  throw new Error(
-    "Error : useReactive hook should be used with a reactive object"
-  );
+export function useObserverThatDoesNotWork<T extends object>(
+  obj: Observable<T>
+) {
+  // Doesnt work since obj reference doeas not change
+  return useSyncExternalStore(subscribe(obj), () => obj);
 }
